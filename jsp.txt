@@ -1,0 +1,403 @@
+<%@page import="java.util.*"%>
+<%@page import="java.sql.*"%>
+<%@page import="java.net.*"%>
+<%@page import="java.io.*"%>
+<%@page import="java.text.SimpleDateFormat"%>
+<%@page import="java.util.Calendar"%>
+<%@page import="com.google.gson.Gson"%>
+<%@page import="java.sql.DriverManager"%>
+<%@page import="java.sql.SQLException"%>
+<%@page import="org.json.JSONArray"%>
+<%@page import="org.json.JSONObject"%>
+<%@page import="org.slf4j.Logger"%>
+<%@page import="org.slf4j.LoggerFactory"%>
+
+<%@ page language="java" contentType="text/html; charset=UTF-8" pageEncoding="UTF-8"%>
+<%@ include file="/WEB-INF/views/ajax/M000000001.jsp" %>
+<%
+    Logger logger = LoggerFactory.getLogger(getClass());
+
+    String header = (String)request.getParameter("header");
+    String detail = (String)request.getParameter("detail");
+    String sdetail = (String)request.getParameter("sdetail");
+    String type = (String)request.getParameter("type");
+
+    String driver = "org.mariadb.jdbc.Driver";
+    String url = "jdbc:mariadb://localhost:3306/simbizlocal?useUnicode=true&characterEncoding=UTF-8&characterSetResults=UTF-8";
+
+    String sLine = "";
+    String sText = "";
+    String user = "root";
+    String password = "tlaqlwm2174";
+
+    JSONObject jsonObj = new JSONObject();
+    String PassText = null;
+    String sql = "";
+    java.sql.Connection conn = null;
+    java.sql.PreparedStatement pstmt = null;
+    ResultSet rs = null;
+    Statement stmt = null;
+    
+    
+    String UID = (String)request.getParameter("UID");
+    
+    java.text.SimpleDateFormat dateFormat = new SimpleDateFormat ( "yyyy-MM-dd HH:mm:ss");
+    java.util.Date time = new java.util.Date();
+    String datetime = dateFormat.format(time);
+
+    try {
+        try {
+            Class.forName(driver);
+            conn = DriverManager.getConnection(url, user, password);
+            conn.setAutoCommit(false);
+
+            if ( type.equals("insert") || type.equals("edit") ) {
+                Gson gson = new Gson();
+                if(header != null){
+                    List<Map> list = gson.fromJson(header, List.class);
+                    String release_no = "";
+                    for(int i = 0 ; i < list.size() ; i ++){
+                        String handle_type = list.get(i).get("type").toString();
+                        
+                        //check tb_release_ng
+                        if (!list.get(i).get("stock_id").toString().equals("") && !list.get(i).get("serial_id").toString().equals("") && !list.get(i).get("item_cd").toString().equals("")) {
+                            String checkNg = getSOrder(conn, "select count(*) as cnt from tb_release_ng where ifnull(status,'출하중지') = '출하중지' and stock_id = " + list.get(i).get("stock_id").toString() + " and serial_id = " + list.get(i).get("serial_id").toString() + " and item_cd = '" + list.get(i).get("item_cd").toString() + "'");
+                            if (!checkNg.equals("0")) {
+                                throw new Exception("출고 불가능한 제품입니다!");
+                            }
+                        }
+                        
+                        if (i == 0) {
+                            release_no = list.get(i).get("release_no").toString();
+                        } else {
+                            if (list.get(i).get("release_no").toString().equals(release_no)) {
+                                continue;
+                            } else {
+                                release_no = list.get(i).get("release_no").toString();
+                            }
+                        }
+                        
+                        if (handle_type.equals("wanted")) {
+                            Map<String, String> row = getRow(conn, "simbizlocal", "tb_release_wanted", list.get(i));
+                            
+                            sql = " update tb_release_wanted set delv_fee = " + row.get("delv_fee") + ", delv_fee_vat = " + row.get("delv_fee_vat") + ", delv_fee_remark = " + row.get("delv_fee_remark")+ ", load_file = " + row.get("load_file")  + " where release_no = " + row.get("release_no");
+                            logger.info("update tb_release_wanted");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        if (handle_type.equals("cust")) {
+                            Map<String, String> row = getRow(conn, "simbizlocal", "tb_release_cust", list.get(i));
+                            
+                            sql = " update tb_release_cust set delv_fee = " + row.get("delv_fee") + ", delv_fee_vat = " + row.get("delv_fee_vat") + ", delv_fee_remark = " + row.get("delv_fee_remark")+ ", load_file = " + row.get("load_file") + " where release_no = " + row.get("release_no");
+                            logger.info("update tb_release_cust");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        if (handle_type.equals("move")) {
+                            Map<String, String> row = getRow(conn, "simbizlocal", "tb_release_move_wh", list.get(i));
+                            
+                            sql = " update tb_release_move_wh set delv_fee = " + row.get("delv_fee") + ", delv_fee_vat = " + row.get("delv_fee_vat") + ", delv_fee_remark = " + row.get("delv_fee_remark")+ ", load_file = " + row.get("load_file") + " where release_no = " + row.get("release_no");
+                            logger.info("update tb_release_move_wh");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                        
+                        if (handle_type.equals("storage")) {
+                            Map<String, String> row = getRow(conn, "simbizlocal", "tb_release_storage", list.get(i));
+                            
+                            sql = " update tb_release_storage set delv_fee = " + row.get("delv_fee") + ", delv_fee_vat = " + row.get("delv_fee_vat") + ", delv_fee_remark = " + row.get("delv_fee_remark")+ ", load_file = " + row.get("load_file") + " where release_no = " + row.get("release_no");
+                            logger.info("update tb_release_storage");
+                            logger.info(sql);
+                            pstmt = conn.prepareStatement(sql);
+                            pstmt.executeUpdate();
+                            addHistory("update", sql);
+                        }
+                    }
+                }
+                PassText = "저장 되었습니다.";
+                jsonObj.put("result", PassText);
+                PassText = jsonObj.toString();
+                out.write(PassText);
+                out.flush();
+                conn.commit();
+                logger.info("!!!!COMMIT DONE!!!!");
+            }
+                if ( type.equals("get_data") ) {
+                          Gson gson = new Gson();
+                            if(header != null){
+                             JSONObject searchValue = new JSONObject(header);
+                            String fromSer = "'" + searchValue.getString("from_ser").toString() + "'" ;
+                            String toSer = "'" + searchValue.getString("to_ser").toString()+"'" ;
+
+                            sql+=" SELECT "; 
+                            sql+=" IF(IFNULL(a.option_1, 'N') = 'Y', '적용', '미적용') AS option_1,  ";
+                            sql+=" a.load_finish_date, "; 
+                            sql+=" '얀마농기코리아' AS sender_name,  ";
+                            sql+=" a.cust_name,  ";
+                            sql+=" CONCAT(ag.region, ag.agency_name) AS region_agency,  ";
+                            sql+=" it.sales_cd,  ";
+                            sql+=" a.qty,  ";
+                            sql+=" ps.machine_no,  ";
+                            sql+=" a.car_no,  ";
+                            sql+=" a.load_type,  ";
+                            sql+=" 			a.delv_fee,  ";
+                            sql+=" 			a.delv_fee_vat,  ";
+                            sql+=" a.delv_fee_remark "; 
+                            sql+=" FROM  ";
+                            
+                            sql+=" ( ";
+                            sql+=" select ";
+                            sql+="       od.release_order_status ";
+                            sql+="      , m.release_no ";
+                            sql+="       , m.load_type ";
+                            sql+="       , m.driver_name ";
+                            sql+="       , m.driver_tel_no ";
+                            sql+="       , m.car_no ";
+                            sql+="       , m.delv_fee ";
+                            sql+="       , m.delv_fee_vat ";
+                            sql+="       , m.delv_fee_remark ";
+                            sql+="       , m.load_file ";
+                            sql+=" 			, m.load_finish_date ";
+                            sql+="       , od.start_agency_cd as start_cd ";
+                            sql+="       , ags.agency_name as start_name ";
+                            sql+="       , od.start_agency_tel_no as start_tel_no ";
+                            sql+="       , od.start_fax_no ";
+                            sql+="       , od.start_agency_address as start_address ";
+                            sql+="       , od.end_agency_cd as end_cd ";
+                            sql+="       , age.agency_name as end_name ";
+                            sql+="      , od.end_agency_tel_no as end_tel_no ";
+                            sql+="       , od.end_fax_no ";
+                            sql+="       , od.end_agency_address as end_address ";
+                            sql+="       , od.delv_cust_remark ";
+                            sql+="       , item.item_cd ";
+                            sql+="       , item.carcass_cd ";
+                            sql+="       , item.sales_cd ";
+                            sql+="       , serial.machine_no ";
+                            sql+="       , od.order_qty as qty ";
+                            sql+="       , serial.built_no ";
+                            sql+="       , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options ";
+                            sql+="       , 'wanted' as type ";
+                            sql+="       , d.serial_id ";
+                            sql+="       , d.stock_id ";
+                            sql+=" , d.option_1 ";
+                            sql+=" 			, '해성운수' cust_name ";
+                            sql+=" from tb_release_order_wanted od ";
+                            sql+=" left join tb_agency_order a on a.agency_order_no = od.agency_order_no ";
+                            sql+=" left join vw_ma_item item on item.item_cd = od.item_cd ";
+                            sql+=" left join tb_product_serial serial on serial.serial_id = od.serial_id ";
+                            sql+=" left join tb_release_wanted_detail d on d.release_order_no = od.release_order_no ";
+                            sql+=" left join tb_release_wanted m on m.release_no = d.release_no ";
+                            
+                            sql+=" left join tb_ma_agency ags on ags.agency_cd = od.start_agency_cd ";
+                            sql+=" left join tb_ma_agency age on age.agency_cd = od.end_agency_cd ";
+                            sql+=" left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W' ";
+                            sql+=" left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T' ";
+                            sql+=" left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H' ";
+                            sql+=" where 1 = 1 ";
+                            sql+=" and m.release_status = 'STATUS99' ";
+                            sql+=" AND (IFNULL(" + fromSer + ",'') = '' OR m.load_finish_date >= " + fromSer + ") "; 
+                            sql+=" AND (IFNULL(" + toSer + ",'') = '' OR m.load_finish_date <= concat(" + toSer + ", ' 23:59:59')) ";
+                            // and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and m.release_no is null) or ({status_ser} = '완료' and m.release_no is not null))
+                            
+                            sql+=" union all ";
+                            sql+=" select ";
+                            sql+="        od.release_order_status ";
+                            sql+="       , m.release_no ";
+                            sql+="       , m.load_type ";
+                            sql+="       , m.driver_name ";
+                            sql+="       , m.driver_tel_no ";
+                            sql+="       , m.car_no ";
+                            sql+="       , m.delv_fee ";
+                            sql+="       , m.delv_fee_vat ";
+                            sql+="       , m.delv_fee_remark ";
+                            sql+="       , m.load_file ";
+                            sql+=" 			, m.load_finish_date ";
+                            sql+="       , od.start_cust_cd as start_cd ";
+                            sql+="       , ags.agency_name as start_name ";
+                            sql+="       , od.start_cust_tel_no as start_tel_no ";
+                            sql+="       , od.start_fax_no ";
+                            sql+="       , od.start_cust_address as start_address ";
+                            sql+="       , od.end_agency_cd as end_cd ";
+                            sql+="       , age.agency_name as end_name ";
+                            sql+="       , od.end_agency_tel_no as end_tel_no ";
+                            sql+="       , od.end_fax_no ";
+                            sql+="       , od.end_agency_address as end_address ";
+                            sql+="       , od.delv_cust_remark ";
+                            sql+="       , item.item_cd ";
+                            sql+=" , item.carcass_cd ";
+                            sql+="       , item.sales_cd ";
+                            sql+="       , serial.machine_no ";
+                            sql+="       , od.order_qty as qty ";
+                            sql+="       , serial.built_no ";
+                            sql+="       , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options ";
+                            sql+="       , 'cust' as type ";
+                            sql+="       , d.serial_id ";
+                            sql+="       , d.stock_id ";
+                            sql+=" 			, d.option_1 ";
+                            sql+=" 			, '해성운수' cust_name ";
+                            sql+=" from tb_release_order_cust od ";
+                            sql+=" left join tb_agency_order a on a.agency_order_no = od.agency_order_no ";
+                            sql+=" left join vw_ma_item item on item.item_cd = od.item_cd ";
+                            sql+=" left join tb_product_serial serial on serial.serial_id = od.serial_id ";
+                            sql+=" left join tb_release_cust_detail d on d.release_order_no = od.release_order_no ";
+                            sql+=" left join tb_release_cust m on m.release_no = d.release_no ";
+                            sql+=" left join tb_ma_agency ags on ags.agency_cd = od.start_cust_cd ";
+                            sql+=" left join tb_ma_agency age on age.agency_cd = od.end_agency_cd ";
+                            sql+=" left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W' ";
+                            sql+=" left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T' ";
+                            sql+=" left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H' ";
+                            sql+=" where 1 = 1 ";
+                            sql+=" and m.release_status = 'STATUS99' ";
+                            sql+=" AND (IFNULL(" + fromSer + ",'') = '' OR m.load_finish_date >= " + fromSer + ") "; 
+                            sql+=" AND (IFNULL(" + toSer + ",'') = '' OR m.load_finish_date <= concat(" + toSer + ", ' 23:59:59')) ";
+                            //and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and m.release_no is null) or ({status_ser} = '완료' and m.release_no is not null))
+                            
+                            sql+=" union all ";
+                            sql+=" select  od.release_order_status ";
+                            sql+="       , m.release_no ";
+                            sql+="       , m.load_type ";
+                            sql+="       , m.driver_name ";
+                            sql+="       , m.driver_tel_no ";
+                            sql+="       , m.car_no ";
+                            sql+="       , m.delv_fee ";
+                            sql+="       , m.delv_fee_vat ";
+                            sql+="       , m.delv_fee_remark ";
+                            sql+="       , m.load_file ";
+                            sql+=" 			, m.load_finish_date ";
+                            sql+="       , od.start_agency_cd as start_cd ";
+                            sql+="       , ags.agency_name as start_name ";
+                            sql+="       , od.start_tel_no ";
+                            sql+="       , od.start_fax_no ";
+                            sql+="       , od.start_address ";
+                            sql+="       , od.end_agency_cd as end_cd ";
+                            sql+="       , age.agency_name as end_name ";
+                            sql+="       , od.end_tel_no ";
+                            sql+="       , od.end_fax_no ";
+                            sql+="       , od.end_address ";
+                            sql+="       , od.delv_cust_remark ";
+                            sql+="       , item.item_cd ";
+                            sql+="       , item.carcass_cd ";
+                            sql+="       , item.sales_cd ";
+                            sql+="       , serial.machine_no ";
+                            sql+="       , od.order_qty as qty ";
+                            sql+="       , serial.built_no ";
+                            sql+="       , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options ";
+                            sql+="       , 'move' as type ";
+                            sql+="       , d.serial_id ";
+                            sql+="       , d.stock_id ";
+                            sql+=" 			, d.option_1 ";
+                            sql+=" 			, '해성운수' cust_name ";
+                            sql+=" from tb_release_order_move_wh od ";
+                            sql+=" left join vw_ma_item item on item.item_cd = od.item_cd ";
+                            sql+=" left join tb_product_serial serial on serial.serial_id = od.serial_id ";
+                            sql+=" left join tb_release_move_wh_detail d on d.release_order_no = od.release_order_no ";
+                            sql+=" left join tb_release_move_wh m on m.release_no = d.release_no ";
+                            sql+=" left join tb_ma_agency ags on ags.agency_cd = od.start_agency_cd ";
+                            sql+=" left join tb_ma_agency age on age.agency_cd = od.end_agency_cd ";
+                            sql+=" left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W' ";
+                            sql+=" left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T' ";
+                            sql+=" left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H' ";
+                            sql+=" where 1 = 1 ";
+                            sql+=" and m.release_status = 'STATUS99' ";
+                            sql+=" AND (IFNULL(" + fromSer + ",'') = '' OR m.load_finish_date >= " + fromSer + ") ";
+                            sql+=" AND (IFNULL(" + toSer + ",'') = '' OR m.load_finish_date <= concat(" + toSer + ", ' 23:59:59')) ";
+                            // and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and ifnull(m.release_no,'') = '') or ({status_ser} = '완료' and ifnull(m.release_no,'') <> ''))
+                            sql+=" union all ";
+                            sql+=" select  od.release_order_status ";
+                            sql+="       , m.release_no ";
+                            sql+="       , m.load_type ";
+                            sql+="       , m.driver_name ";
+                            sql+="       , m.driver_tel_no ";
+                            sql+="       , m.car_no ";
+                            sql+="       , m.delv_fee ";
+                            sql+="       , m.delv_fee_vat ";
+                            sql+="       , m.delv_fee_remark ";
+                            sql+="       , m.load_file ";
+                            sql+=" 			, m.load_finish_date ";
+                            sql+="       , od.start_cust_cd as start_cd ";
+                            sql+="       , ags.agency_name as start_name ";
+                            sql+="       , od.start_tel_no ";
+                            sql+="       , od.start_fax_no ";
+                            sql+="       , od.start_address ";
+                            sql+="       , od.end_agency_cd as end_cd ";
+                            sql+="       , age.agency_name as end_name ";
+                            sql+="       , od.end_tel_no ";
+                            sql+="       , od.end_fax_no ";
+                            sql+="       , od.end_address ";
+                            sql+="       , od.delv_cust_remark ";
+                            sql+="       , item.item_cd ";
+                            sql+="       , item.carcass_cd ";
+                            sql+="       , item.sales_cd ";
+                            sql+="       , serial.machine_no ";
+                            sql+="       , od.order_qty as qty ";
+                            sql+="       , serial.built_no ";
+                            sql+="       , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options ";
+                            sql+="       , 'storage' as type ";
+                            sql+="       , d.serial_id ";
+                            sql+="       , d.stock_id ";
+                            sql+=" 			, d.option_1 ";
+                            sql+=" 			, '해성운수' cust_name ";
+                            sql+=" from tb_release_order_storage od ";
+                            sql+=" left join vw_ma_item item on item.item_cd = od.item_cd ";
+                            sql+=" left join tb_product_serial serial on serial.serial_id = od.serial_id ";
+                            sql+=" left join tb_release_storage_detail d on d.release_order_no = od.release_order_no ";
+                            sql+=" left join tb_release_storage m on m.release_no = d.release_no ";
+                            sql+=" left join tb_ma_agency ags on ags.agency_cd = od.start_cust_cd ";
+                            sql+=" left join tb_ma_agency age on age.agency_cd = od.end_agency_cd ";
+                            sql+=" left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W' ";
+                            sql+=" left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T' ";
+                            sql+=" left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H' ";
+                            sql+=" where 1 = 1 ";
+                            sql+=" and m.release_status = 'STATUS99' ";
+                            sql+=" and m.in_out_type = '외자' ";
+                            sql+=" AND (IFNULL(" + fromSer + ",'') = '' OR m.load_finish_date >= " + fromSer + ") ";
+                            sql+=" AND (IFNULL(" + toSer + ",'') = '' OR m.load_finish_date <= concat(" + toSer + ", ' 23:59:59')) ";
+                            // and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and ifnull(m.release_no,'') = '') or ({status_ser} = '완료' and ifnull(m.release_no,'') <> ''))
+                            sql+=" ) a ";
+                            sql+="             LEFT JOIN tb_ma_agency ag ON ag.agency_cd = a.end_cd  ";
+                            sql+="             LEFT JOIN vw_ma_item it ON it.item_cd = a.item_cd  ";
+                            sql+="             LEFT JOIN tb_product_serial ps ON ps.item_cd = a.item_cd  ";
+                            sql+="             GROUP BY a.serial_id  ";
+                            sql+="             ORDER BY   a.type DESC, a.release_no ";
+            
+
+                            List<Map<String, Object>> data = selectAllQuery(conn,sql);
+                           
+                            
+                            String jsonString = new Gson().toJson(data);
+                            out.write(jsonString);
+                            
+                         }
+                        }
+            if ( type.equals("delete") ) {}
+            
+            if ( type.equals("cust_btn2") ) {}
+            
+            if ( type.equals("cust_btn4") ) {}
+            if ( type.equals("cust_btn5") ) {}
+            
+            if ( type.equals("excel") ) {}
+        } catch (Throwable throwable) {
+            if (conn != null) {
+                conn.rollback();
+                logger.info("!!!!ROLLBACK DONE!!!!");
+            }
+            throw throwable;
+        } finally {
+            if (conn != null) conn.close();
+            if (pstmt != null) pstmt.close();
+        }
+    } catch (Exception e) {
+        out.write("error : " + e.getMessage().toString() + "\n");
+        if (conn != null) conn.close();
+        if (pstmt != null) pstmt.close();
+    }
+%>

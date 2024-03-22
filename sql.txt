@@ -1,0 +1,239 @@
+select {from_ser} as from_ser
+      , {to_ser} as to_ser
+      , {status_ser} as status_ser
+      , status
+      , release_order_status
+      , release_no
+      , load_type
+      , driver_name
+      , driver_tel_no
+      , car_no
+      , delv_fee
+      , delv_fee_vat
+      , delv_fee_remark
+      , load_file
+      , start_cd
+      , start_name
+      , start_tel_no
+      , start_fax_no
+      , start_address
+      , end_cd
+      , end_name
+      , end_tel_no
+      , end_fax_no
+      , end_address
+      , delv_cust_remark
+      , item_cd
+      , carcass_cd
+      , sales_cd
+      , machine_no
+      , order_qty
+      , built_no
+      , options
+      , type
+      , serial_id
+      , stock_id
+from (select case when ifnull(m.delv_fee,'') != '' then '<span class="form-circle-sm" style="background-color:#4472c4;"><span style="color:white;">완료</span></span>'
+                                        else '<span class="form-circle-sm" style="background-color:#c00;"><span style="color:white;">미완료</span></span>' end as status
+      , od.release_order_status
+      , m.release_no
+      , m.load_type
+      , m.driver_name
+      , m.driver_tel_no
+      , m.car_no
+      , m.delv_fee
+      , m.delv_fee_vat
+      , m.delv_fee_remark
+      , m.load_file
+      , od.start_agency_cd as start_cd
+      , ags.agency_name as start_name
+      , od.start_agency_tel_no as start_tel_no
+      , od.start_fax_no
+      , od.start_agency_address as start_address
+      , od.end_agency_cd as end_cd
+      , age.agency_name as end_name
+      , od.end_agency_tel_no as end_tel_no
+      , od.end_fax_no
+      , od.end_agency_address as end_address
+      , od.delv_cust_remark
+      , item.item_cd
+      , item.carcass_cd
+      , item.sales_cd
+      , serial.machine_no
+      , od.order_qty
+      , serial.built_no
+      , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options
+      , 'wanted' as type
+      , d.serial_id
+      , d.stock_id
+from tb_release_order_wanted od
+left join tb_agency_order a on a.agency_order_no = od.agency_order_no
+left join vw_ma_item item on item.item_cd = od.item_cd
+left join tb_product_serial serial on serial.serial_id = od.serial_id
+left join tb_release_wanted_detail d on d.release_order_no = od.release_order_no
+left join tb_release_wanted m on m.release_no = d.release_no
+left join tb_ma_agency ags on ags.agency_cd = od.start_agency_cd
+left join tb_ma_agency age on age.agency_cd = od.end_agency_cd
+left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W'
+left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T'
+left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H'
+where 1 = 1
+and m.release_status = 'STATUS99'
+and (ifnull({from_ser},'') = '' or m.load_finish_date >= {from_ser})
+and (ifnull({to_ser},'') = '' or m.load_finish_date <= concat({to_ser}, ' 23:59:59'))
+and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and m.release_no is null) or ({status_ser} = '완료' and m.release_no is not null))
+
+union all
+
+select case when ifnull(m.delv_fee,'') != '' then '<span class="form-circle-sm" style="background-color:#4472c4;"><span style="color:white;">완료</span></span>'
+                                        else '<span class="form-circle-sm" style="background-color:#c00;"><span style="color:white;">미완료</span></span>' end as status
+      , od.release_order_status
+      , m.release_no
+      , m.load_type
+      , m.driver_name
+      , m.driver_tel_no
+      , m.car_no
+      , m.delv_fee
+      , m.delv_fee_vat
+      , m.delv_fee_remark
+      , m.load_file
+      , od.start_cust_cd as start_cd
+      , ags.agency_name as start_name
+      , od.start_cust_tel_no as start_tel_no
+      , od.start_fax_no
+      , od.start_cust_address as start_address
+      , od.end_agency_cd as end_cd
+      , age.agency_name as end_name
+      , od.end_agency_tel_no as end_tel_no
+      , od.end_fax_no
+      , od.end_agency_address as end_address
+      , od.delv_cust_remark
+      , item.item_cd
+      , item.carcass_cd
+      , item.sales_cd
+      , serial.machine_no
+      , od.order_qty
+      , serial.built_no
+      , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options
+      , 'cust' as type
+      , d.serial_id
+      , d.stock_id
+from tb_release_order_cust od
+left join tb_agency_order a on a.agency_order_no = od.agency_order_no
+left join vw_ma_item item on item.item_cd = od.item_cd
+left join tb_product_serial serial on serial.serial_id = od.serial_id
+left join tb_release_cust_detail d on d.release_order_no = od.release_order_no
+left join tb_release_cust m on m.release_no = d.release_no
+left join tb_ma_agency ags on ags.agency_cd = od.start_cust_cd
+left join tb_ma_agency age on age.agency_cd = od.end_agency_cd
+left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W'
+left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T'
+left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H'
+where 1 = 1
+and m.release_status = 'STATUS99'
+and (ifnull({from_ser},'') = '' or m.load_finish_date >= {from_ser})
+and (ifnull({to_ser},'') = '' or m.load_finish_date <= concat({to_ser}, ' 23:59:59'))
+and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and m.release_no is null) or ({status_ser} = '완료' and m.release_no is not null))
+
+union all
+select case when ifnull(m.delv_fee,'') != '' then '<span class="form-circle-sm" style="background-color:#4472c4;"><span style="color:white;">완료</span></span>'
+                                        else '<span class="form-circle-sm" style="background-color:#c00;"><span style="color:white;">미완료</span></span>' end as status
+      , od.release_order_status
+      , m.release_no
+      , m.load_type
+      , m.driver_name
+      , m.driver_tel_no
+      , m.car_no
+      , m.delv_fee
+      , m.delv_fee_vat
+      , m.delv_fee_remark
+      , m.load_file
+      , od.start_agency_cd as start_cd
+      , ags.agency_name as start_name
+      , od.start_tel_no
+      , od.start_fax_no
+      , od.start_address
+      , od.end_agency_cd as end_cd
+      , age.agency_name as end_name
+      , od.end_tel_no
+      , od.end_fax_no
+      , od.end_address
+      , od.delv_cust_remark
+      , item.item_cd
+      , item.carcass_cd
+      , item.sales_cd
+      , serial.machine_no
+      , od.order_qty
+      , serial.built_no
+      , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options
+      , 'move' as type
+      , d.serial_id
+      , d.stock_id
+from tb_release_order_move_wh od
+left join vw_ma_item item on item.item_cd = od.item_cd
+left join tb_product_serial serial on serial.serial_id = od.serial_id
+left join tb_release_move_wh_detail d on d.release_order_no = od.release_order_no
+left join tb_release_move_wh m on m.release_no = d.release_no
+left join tb_ma_agency ags on ags.agency_cd = od.start_agency_cd
+left join tb_ma_agency age on age.agency_cd = od.end_agency_cd
+left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W'
+left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T'
+left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H'
+where 1 = 1
+and m.release_status = 'STATUS99'
+and (ifnull({from_ser},'') = '' or m.load_finish_date >= {from_ser})
+and (ifnull({to_ser},'') = '' or m.load_finish_date <= concat({to_ser}, ' 23:59:59'))
+and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and ifnull(m.release_no,'') = '') or ({status_ser} = '완료' and ifnull(m.release_no,'') <> ''))
+
+union all
+select case when ifnull(m.delv_fee,'') != '' then '<span class="form-circle-sm" style="background-color:#4472c4;"><span style="color:white;">완료</span></span>'
+                                        else '<span class="form-circle-sm" style="background-color:#c00;"><span style="color:white;">미완료</span></span>' end as status
+      , od.release_order_status
+      , m.release_no
+      , m.load_type
+      , m.driver_name
+      , m.driver_tel_no
+      , m.car_no
+      , m.delv_fee
+      , m.delv_fee_vat
+      , m.delv_fee_remark
+      , m.load_file
+      , od.start_cust_cd as start_cd
+      , ags.agency_name as start_name
+      , od.start_tel_no
+      , od.start_fax_no
+      , od.start_address
+      , od.end_agency_cd as end_cd
+      , age.agency_name as end_name
+      , od.end_tel_no
+      , od.end_fax_no
+      , od.end_address
+      , od.delv_cust_remark
+      , item.item_cd
+      , item.carcass_cd
+      , item.sales_cd
+      , serial.machine_no
+      , od.order_qty
+      , serial.built_no
+      , concat(if(ot1.option_name is not null, ot1.option_name, ''), if(ot1.option_name is not null and ot2.option_name is not null, ' - ', ''), if(ot2.option_name is not null, ot2.option_name, ''), if(ot2.option_name is not null and ot3.option_name is not null, ' - ', ''), if(ot3.option_name is not null, ot3.option_name, '')) as options
+      , 'storage' as type
+      , d.serial_id
+      , d.stock_id
+from tb_release_order_storage od
+left join vw_ma_item item on item.item_cd = od.item_cd
+left join tb_product_serial serial on serial.serial_id = od.serial_id
+left join tb_release_storage_detail d on d.release_order_no = od.release_order_no
+left join tb_release_storage m on m.release_no = d.release_no
+left join tb_ma_agency ags on ags.agency_cd = od.start_cust_cd
+left join tb_ma_agency age on age.agency_cd = od.end_agency_cd
+left join vw_ma_item_parts_option ot1 on ot1.option_item_cd = od.option_1 and ot1.item_cd = od.item_cd and ot1.parts_option_type = 'W'
+left join vw_ma_item_parts_option ot2 on ot2.option_item_cd = od.option_2 and ot2.item_cd = od.item_cd and ot2.parts_option_type = 'T'
+left join vw_ma_item_parts_option ot3 on ot3.option_item_cd = od.option_3 and ot3.item_cd = od.item_cd and ot3.parts_option_type = 'H'
+where 1 = 1
+and m.release_status = 'STATUS99'
+and m.in_out_type = '외자'
+and (ifnull({from_ser},'') = '' or m.load_finish_date >= {from_ser})
+and (ifnull({to_ser},'') = '' or m.load_finish_date <= concat({to_ser}, ' 23:59:59'))
+and (ifnull({status_ser},'') = '' or ({status_ser} = '미완료' and ifnull(m.release_no,'') = '') or ({status_ser} = '완료' and ifnull(m.release_no,'') <> ''))
+
+) a
